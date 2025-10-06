@@ -1,6 +1,8 @@
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useTripStore } from '@/modules/tracking/stores/useTripStore';
-import { WS_URL } from '@/utils/constants';
+import { LOCATION_UPDATE_INTERVAL, WS_URL } from '@/utils/constants';
+import getDistanceFromLatLonInKm from '@/utils/geo';
+import { formatDuration } from '@/utils/time';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -37,28 +39,6 @@ export function LocationTracker({ tripData }: Props) {
         speed: '0 km/h',
     });
 
-    const deg2rad = (deg: number) => deg * (Math.PI / 180);
-
-    const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 6371;
-        const dLat = deg2rad(lat2 - lat1);
-        const dLon = deg2rad(lon2 - lon1);
-        const a =
-            Math.sin(dLat / 2) ** 2 +
-            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) ** 2;
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    };
-
-    const formatDuration = (start: Date | null, end: Date) => {
-        if (!start) return '00:00:00';
-        const diff = Math.floor((end.getTime() - start.getTime()) / 1000);
-        const hrs = Math.floor(diff / 3600).toString().padStart(2, '0');
-        const mins = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
-        const secs = (diff % 60).toString().padStart(2, '0');
-        return `${hrs}:${mins}:${secs}`;
-    };
-
     const startTracking = async () => {
         try {
             console.log('Starting location tracking...');
@@ -86,10 +66,17 @@ export function LocationTracker({ tripData }: Props) {
             startTimeRef.current = new Date();
             setTrackingActive(true);
 
-            locationInterval.current = setInterval(async () => {
+            const fetchAndSendLocation = async () => {
                 if (!trackingActive) return;
                 try {
                     const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+
+                    // Optional: Reverse geocode
+                    const address = await Location.reverseGeocodeAsync({
+                        latitude: loc.coords.latitude,
+                        longitude: loc.coords.longitude,
+                    });
+                    console.log('Reverse geocode result:', JSON.stringify(address, null, 2));
 
                     // Calculate distance
                     let newDistance = totalDistanceRef.current;
@@ -105,24 +92,18 @@ export function LocationTracker({ tripData }: Props) {
                     }
                     prevLocationRef.current = loc;
 
-                    // Format duration
                     const durationStr = formatDuration(startTimeRef.current, new Date());
-
-                    // Speed from geolocation
                     const speedStr = loc.coords.speed ? (loc.coords.speed * 3.6).toFixed(1) + ' km/h' : '0 km/h';
 
-                    // Update local state for UI
                     setCurrentLocation({
                         latitude: loc.coords.latitude,
                         longitude: loc.coords.longitude,
                         speed: speedStr,
                     });
 
-                    // Update only distance and duration in store
                     updateField('distance', newDistance.toFixed(2) + ' km');
                     updateField('duration', durationStr);
 
-                    // Send WS message with latest location + speed
                     const wsData = {
                         ...storeTrip,
                         latitude: loc.coords.latitude,
@@ -138,10 +119,14 @@ export function LocationTracker({ tripData }: Props) {
                 } catch (error) {
                     console.error('Location error:', error);
                 }
-            }, 3000);
+            };
+
+            await fetchAndSendLocation();
+
+            locationInterval.current = setInterval(fetchAndSendLocation, LOCATION_UPDATE_INTERVAL);
 
             setIsInitializing(false);
-            console.log('✅ Tracking started successfully');
+            console.log('Tracking started successfully');
         } catch (error) {
             console.error('Failed to start tracking:', error);
             Alert.alert('Error', 'Failed to start tracking. Please try again.');
@@ -282,7 +267,6 @@ export function LocationTracker({ tripData }: Props) {
     );
 }
 
-// Styles remain the same
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 20, backgroundColor: '#f5f5f5' },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },

@@ -30,7 +30,6 @@ export default function HomeScreen() {
                         <Text style={styles.newTripText}>New trip</Text>
                     </Pressable>
 
-                    {/* Past Trips Section */}
                     <View style={styles.pastTripsSection}>
                         <Text style={styles.sectionTitle}>Past trips</Text>
 
@@ -58,7 +57,7 @@ const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
         backgroundColor: '#f5f5f5',
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, // extra for Android
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
     },
     container: {
         flex: 1,

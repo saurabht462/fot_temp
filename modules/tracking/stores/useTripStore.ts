@@ -1,4 +1,3 @@
-// store/tripStore.ts
 import { create } from 'zustand';
 
 export interface TripData {

@@ -3,7 +3,6 @@ export const WS_URL = "ws://192.168.1.8:8080";
 
 // Location Tracking Configuration
 export const LOCATION_UPDATE_INTERVAL = 3000; // 3 seconds
-export const LOCATION_ACCURACY = 'high' as const;
 
 // App Configuration
 export const APP_NAME = "Driver Tracker";

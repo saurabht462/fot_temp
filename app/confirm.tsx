@@ -25,7 +25,6 @@ export default function ConfirmTripScreen() {
             <Text style={styles.title}>Complete Trip</Text>
             <Text style={styles.subtitle}>Confirm the trip details to complete</Text>
 
-            {/* Trip Summary */}
             <View style={styles.summaryCard}>
                 <Text style={styles.summaryLabel}>Route Name / ID</Text>
                 <TextInput
@@ -99,7 +98,6 @@ export default function ConfirmTripScreen() {
                 />
             </View>
 
-            {/* Confirm Button */}
             <Pressable style={styles.confirmButton} onPress={handleConfirm}>
                 <Text style={styles.confirmButtonText}>Confirm & Complete Trip</Text>
             </Pressable>

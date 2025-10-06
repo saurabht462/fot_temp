@@ -14,6 +14,8 @@ export default function TripFormScreen() {
         coDriverName: '',
         weatherCondition: '',
         roadType: '',
+        distance: '',
+        duration: ''
     });
 
     const updateField = (field: string, value: string) => {

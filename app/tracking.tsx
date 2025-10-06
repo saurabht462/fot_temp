@@ -15,7 +15,7 @@ export default function TrackingScreen() {
         }
     }, [tripData]);
 
-    if (!tripData) return null; // avoid rendering before redirect
+    if (!tripData) return null;
 
     return (
         <View style={styles.container}>
