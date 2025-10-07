@@ -1,7 +1,3 @@
-# Welcome to your Expo app 👋
-
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
-
 ## Get started
 
 1. Install dependencies
@@ -15,36 +11,76 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    ```bash
    npx expo start
    ```
+3. Folder Structure
+   ```
+   project-root/
+   │── app/                        # Expo Router entry points (routes only)
+   │   │── _layout.tsx             # Root layout
+   │   │── index.tsx               # Home (/)
+   │   │── auth/
+   │   │   │── index.tsx           # /auth
+   │   │   │── login.tsx           # /auth/login
+   │   │   │── signup.tsx          # /auth/signup
+   │   │── settings/
+   │       │── index.tsx        
+   │
+   │── modules/                    # Feature-based modules (scalable)
+   │   │── auth/
+   │   │   │── components/
+   │   │   │   │── LoginForm.tsx
+   │   │   │   │── SignupForm.tsx
+   │   │   │── hooks/
+   │   │   │   │── useAuth.ts
+   │   │   │── services/
+   │   │   │   │── authService.ts
+   │   │   │── store/
+   │   │   │   │── useAuthStore.ts
+   │   │   │── validation/
+   │   │   │   │── authSchema.ts
+   │   │   │── index.ts            # Barrel export for auth module
+   │   │
+   │   │── settings/               # Future feature (similar structure)
+   │
+   │── components/                 # Global reusable UI components
+   │   │── Button.tsx
+   │   │── Loader.tsx
+   │   │── ErrorBoundary.tsx
+   │
+   │── hooks/                      # Global hooks
+   │   │── useTheme.ts
+   │   │── useNetwork.ts
+   │
+   │── store/                      # Global state management (Zustand/Redux/etc.)
+   │   │── useThemeStore.ts
+   │
+   │── services/                   # Cross-module/shared services (API, Firebase, etc.)
+   │   │── apiClient.ts
+   │   │── logger.ts
+   │
+   │── utils/                      # Helpers/utilities
+   │   │── formatDate.ts
+   │   │── validateEmail.ts
+   │   │── constants.ts
+   │
+   │── localization/               # i18n
+   │   │── en.json
+   │   │── es.json
+   │
+   │── env/                        # Environment configs
+   │   │── .env.dev
+   │   │── .env.prod
+   │   │── .env.staging
+   │
+   │── tests/                      # Testing setup
+   │   │── unit/
+   │   │── e2e/
+   │   │── jest.setup.ts
+   │
+   │── husky/                      # Git hooks
+   │
+   │── app.config.ts               # Expo app config
+   │── tsconfig.json
+   │── package.json
+   │── README.md
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+   ```
