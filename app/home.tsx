@@ -1,6 +1,8 @@
+import { requestPermissions } from '@/services/locationService';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+    Alert,
     Platform,
     Pressable,
     SafeAreaView,
@@ -19,13 +21,36 @@ export default function HomeScreen() {
         { id: '3', routeName: 'Route C', distance: '28.5 km', date: '10 Jan 2025' },
     ];
 
+    const handleNewTrip = async () => {
+        try {
+            const permissionsGranted = await requestPermissions();
+
+            if (permissionsGranted) {
+                router.push('/trip-form');
+            } else {
+                Alert.alert(
+                    'Permissions Required',
+                    'Location permissions (foreground and background) are required to track your trip. Please enable them in your device settings.',
+                    [{ text: 'OK' }]
+                );
+            }
+        } catch (error) {
+            console.error('Error requesting permissions:', error);
+            Alert.alert(
+                'Error',
+                'Failed to request location permissions. Please try again.',
+                [{ text: 'OK' }]
+            );
+        }
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <Pressable
                         style={styles.newTripButton}
-                        onPress={() => router.push('/trip-form')}
+                        onPress={handleNewTrip}
                     >
                         <Text style={styles.newTripText}>New trip</Text>
                     </Pressable>

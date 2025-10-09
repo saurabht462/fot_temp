@@ -1,8 +1,15 @@
+import { stopTracking } from '@/services/locationService';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function LoginScreen() {
+
+    useEffect(() => {
+        // kill old bg task running
+        stopTracking();
+    }, []);
+    
     const router = useRouter();
 
     const handleLogin = () => {
@@ -21,8 +28,6 @@ export default function LoginScreen() {
                         <Text style={styles.buttonText}>Log in</Text>
                     </Pressable>
                 </View>
-
-                <Text style={styles.version}>v3.0.0 staging 488</Text>
             </View>
         </View>
     );

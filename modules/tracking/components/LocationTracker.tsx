@@ -1,12 +1,11 @@
-import { useWebSocket } from '@/hooks/useWebSocket';
-import { useTripStore } from '@/modules/tracking/stores/useTripStore';
-import { LOCATION_UPDATE_INTERVAL, WS_URL } from '@/utils/constants';
+import { requestPermissions, startTracking, stopTracking } from '@/services/locationService';
 import getDistanceFromLatLonInKm from '@/utils/geo';
 import { formatDuration } from '@/utils/time';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTripStore } from '../stores/useTripStore';
 
 interface Props {
     tripData: {
@@ -22,135 +21,112 @@ interface Props {
 export function LocationTracker({ tripData }: Props) {
     const router = useRouter();
     const [showEditModal, setShowEditModal] = useState(false);
-    const [isInitializing, setIsInitializing] = useState(true);
-    const [trackingActive, setTrackingActive] = useState(true);
-
-    const prevLocationRef = useRef<Location.LocationObject | null>(null);
-    const startTimeRef = useRef<Date | null>(null);
+    const [loading, setLoading] = useState(true);
     const totalDistanceRef = useRef(0);
-    const locationInterval = useRef<NodeJS.Timeout | null>(null);
-
-    const { wsStatus, sendMessage, connect, disconnect } = useWebSocket(WS_URL);
-    const { tripData: storeTrip, setTripData, updateField } = useTripStore();
-
-    const [currentLocation, setCurrentLocation] = useState({
+    const watcherRef = useRef<Location.LocationSubscription | null>(null);
+    const startTimeRef = useRef<Date | null>(new Date());
+    const prevLocationRef = useRef<Location.LocationObject | null>(null);
+    const [currentLoc, setCurrentLoc] = useState({
         latitude: 0,
         longitude: 0,
-        speed: '0 km/h',
+        speed: '0 km/h'
     });
+    const { tripData: storeTrip, setTripData, updateField } = useTripStore();
 
-    const startTracking = async () => {
-        try {
-            console.log('Starting location tracking...');
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert(
-                    'Permission Required',
-                    'Location permission is required for tracking.',
-                    [
-                        { text: 'Cancel', onPress: () => router.replace('/') },
-                        { text: 'OK' }
-                    ]
-                );
-                setIsInitializing(false);
-                return;
-            }
-
-            setTripData({
-                ...tripData,
-                distance: '0 km',
-                duration: '00:00:00'
-            });
-
-            connect();
-            startTimeRef.current = new Date();
-            setTrackingActive(true);
-
-            const fetchAndSendLocation = async () => {
-                if (!trackingActive) return;
-                try {
-                    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-
-                    // Optional: Reverse geocode
-                    const address = await Location.reverseGeocodeAsync({
-                        latitude: loc.coords.latitude,
-                        longitude: loc.coords.longitude,
-                    });
-                    console.log('Reverse geocode result:', JSON.stringify(address, null, 2));
-
-                    // Calculate distance
-                    let newDistance = totalDistanceRef.current;
-                    if (prevLocationRef.current) {
-                        const dist = getDistanceFromLatLonInKm(
-                            prevLocationRef.current.coords.latitude,
-                            prevLocationRef.current.coords.longitude,
-                            loc.coords.latitude,
-                            loc.coords.longitude
-                        );
-                        newDistance += dist;
-                        totalDistanceRef.current = newDistance;
-                    }
-                    prevLocationRef.current = loc;
-
-                    const durationStr = formatDuration(startTimeRef.current, new Date());
-                    const speedStr = loc.coords.speed ? (loc.coords.speed * 3.6).toFixed(1) + ' km/h' : '0 km/h';
-
-                    setCurrentLocation({
-                        latitude: loc.coords.latitude,
-                        longitude: loc.coords.longitude,
-                        speed: speedStr,
-                    });
-
-                    updateField('distance', newDistance.toFixed(2) + ' km');
-                    updateField('duration', durationStr);
-
-                    const wsData = {
-                        ...storeTrip,
-                        latitude: loc.coords.latitude,
-                        longitude: loc.coords.longitude,
-                        speed: speedStr,
-                        distance: newDistance.toFixed(2),
-                        duration: durationStr,
-                        timestamp: Date.now(),
-                        source: 'foreground',
-                    };
-                    sendMessage(wsData);
-
-                } catch (error) {
-                    console.error('Location error:', error);
-                }
-            };
-
-            await fetchAndSendLocation();
-
-            locationInterval.current = setInterval(fetchAndSendLocation, LOCATION_UPDATE_INTERVAL);
-
-            setIsInitializing(false);
-            console.log('Tracking started successfully');
-        } catch (error) {
-            console.error('Failed to start tracking:', error);
-            Alert.alert('Error', 'Failed to start tracking. Please try again.');
-            setIsInitializing(false);
+    const stopLocationTracking = () => {
+        if (watcherRef.current) {
+            watcherRef.current.remove();
+            watcherRef.current = null;
         }
-    };
-
-    const stopTracking = () => {
-        setTrackingActive(false);
-        if (locationInterval.current) {
-            clearInterval(locationInterval.current);
-            locationInterval.current = null;
-        }
-        disconnect();
-        console.log('Tracking stopped');
+        stopTracking();
     };
 
     useEffect(() => {
-        stopTracking();
-        startTracking();
-        return () => stopTracking();
+        (async () => {
+            try {
+                const granted = await requestPermissions();
+                if (!granted) {
+                    Alert.alert('Permission Required', 'Enable location permissions in Settings.');
+                    return;
+                }
+
+                await startTracking();
+
+                setTripData({
+                    ...tripData,
+                    distance: '0 km',
+                    duration: '00:00:00'
+                });
+
+                watcherRef.current = await Location.watchPositionAsync(
+                    {
+                        accuracy: Location.Accuracy.High,
+                        distanceInterval: 5,
+                        timeInterval: 1000,
+                    },
+                    (loc) => {
+                        console.log('inside foreground');
+                        let newDistance = totalDistanceRef.current;
+                        if (prevLocationRef.current) {
+                            const dist = getDistanceFromLatLonInKm(
+                                prevLocationRef.current.coords.latitude,
+                                prevLocationRef.current.coords.longitude,
+                                loc.coords.latitude,
+                                loc.coords.longitude
+                            );
+                            newDistance += dist;
+                            totalDistanceRef.current = newDistance;
+                        }
+
+                        prevLocationRef.current = loc;
+
+                        const durationStr = formatDuration(startTimeRef.current, new Date());
+                        const speedStr = loc.coords.speed ? (loc.coords.speed * 3.6).toFixed(1) + ' km/h' : '0 km/h';
+
+                        setCurrentLoc({
+                            latitude: loc.coords.latitude,
+                            longitude: loc.coords.longitude,
+                            speed: speedStr
+                        });
+
+                        updateField('distance', newDistance.toFixed(2) + ' km');
+                        updateField('duration', durationStr);
+                    }
+                );
+
+            } catch (err) {
+                console.error(err);
+                Alert.alert('Error', String(err));
+            } finally {
+                setLoading(false);
+            }
+        })();
+
+        return () => {
+            stopLocationTracking();
+        };
     }, []);
 
-    if (isInitializing) {
+    const handleCompleteTrip = () => {
+        Alert.alert(
+            'Confirm Trip Completion',
+            'Are you sure you want to complete this trip?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Yes',
+                    onPress: () => {
+                        stopLocationTracking();
+                        router.push('/confirm');
+                    },
+                    style: 'destructive',
+                },
+            ],
+            { cancelable: true }
+        );
+    };
+
+    if (loading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#4CAF50" />
@@ -169,7 +145,7 @@ export function LocationTracker({ tripData }: Props) {
             <View style={styles.statsRow}>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Speed</Text>
-                    <Text style={styles.statValue}>{currentLocation.speed}</Text>
+                    <Text style={styles.statValue}>{currentLoc.speed}</Text>
                 </View>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Distance</Text>
@@ -191,11 +167,11 @@ export function LocationTracker({ tripData }: Props) {
             <View style={styles.statsRow}>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Latitude</Text>
-                    <Text style={styles.statValue}>{currentLocation.latitude.toFixed(6)}</Text>
+                    <Text style={styles.statValue}>{currentLoc.latitude.toFixed(6)}</Text>
                 </View>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Longitude</Text>
-                    <Text style={styles.statValue}>{currentLocation.longitude.toFixed(6)}</Text>
+                    <Text style={styles.statValue}>{currentLoc.longitude.toFixed(6)}</Text>
                 </View>
             </View>
 
@@ -221,24 +197,7 @@ export function LocationTracker({ tripData }: Props) {
                 </Pressable>
                 <Pressable
                     style={styles.completeButton}
-                    onPress={() => {
-                        Alert.alert(
-                            'Confirm Trip Completion',
-                            'Are you sure you want to complete this trip?',
-                            [
-                                { text: 'Cancel', style: 'cancel' },
-                                {
-                                    text: 'Yes',
-                                    onPress: () => {
-                                        stopTracking();
-                                        router.push('/confirm');
-                                    },
-                                    style: 'destructive',
-                                },
-                            ],
-                            { cancelable: true }
-                        );
-                    }}
+                    onPress={handleCompleteTrip}
                 >
                     <Text style={styles.completeText}>Complete trip</Text>
                 </Pressable>
